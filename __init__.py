@@ -169,11 +169,11 @@ class SCImportOperator(bpy.types.Operator):
     filepath: bpy.props.StringProperty(name='File Path', description='File path for import operation', maxlen=1023, default='')
 
     def execute(self, context):
-        # sc_import.init(*path.split(self.properties.filepath), dict(context.scene.sc_import_props))
+        sc_import.init(*path.split(self.properties.filepath), dict(context.scene.sc_import_props))
 
-        options = dict(context.scene.sc_import_props)
-        tim = timeit(lambda: sc_import.init(*path.split(self.properties.filepath), options), number=1)
-        print(tim)
+        # options = dict(context.scene.sc_import_props)
+        # tim = timeit(lambda: sc_import.init(*path.split(self.properties.filepath), options), number=1)
+        # print(tim)
         
         return {'FINISHED'}
 
@@ -216,7 +216,7 @@ def register():
 
 
 def unregister():
-    for clss in reversed(classes): bpy.utils.register_class(clss)
+    for clss in reversed(classes): bpy.utils.unregister_class(clss)
     bpy.types.TOPBAR_MT_file_import.remove(top_bar_import)
     # bpy.types.TOPBAR_MT_file_export.remove(top_bar_export)
 

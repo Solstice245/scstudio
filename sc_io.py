@@ -1,65 +1,60 @@
 from os import path
 import struct
 
-modl_keys = [
-    'tag', 'version', 'bone_offset', 'bone_count', 'vertices_offset', 'vert_unk', 'vertices_count', 
-    'faces_offset', 'face_count', 'info_offset', 'info_count', 'total_bone_count'
-]
-bone_keys = [
-    'mxx', 'mxy', 'mxz', 'mxw', 'myx', 'myy', 'myz', 'myw', 'mzx', 'mzy', 'mzz', 'mzw', 'mwx', 'mwy', 'mwz', 'mww',
-    'posx', 'posy', 'posz', 'rotx', 'roty', 'rotz', 'rotw', 'name_offset', 'parent_index', 'unk0', 'unk1'
-]
-vert_keys = [
-    'posx', 'posy', 'posz', 'tanx', 'tany', 'tanz', 'norx', 'nory', 'norz', 'binx', 'biny', 'binz',
-    'uv0x', 'uv0y', 'uv1x', 'uv1y', 'bone0', 'bone1', 'bone2', 'bone3'
-]
-fram_keys = ['posx', 'posy', 'posz', 'rotx', 'roty', 'rotz', 'rotw']
-head_keys = ['time', 'flags']
-anim_keys = ['tag', 'version', 'frames', 'duration', 'bones', 'names_offset', 'links_offset', 'frames_offset', 'frame_size']
+# modl description
+#    tag version bone_offset bone_count vertices_offset vert_unk vertices_count
+#    faces_offset face_count info_offset info_count total_bone_count
+# bone description
+#    mxx mxy mxz mxw myx myy myz myw mzx mzy mzz mzw mwx mwy mwz mww
+#    posx posy posz rotx roty rotz rotw name_offset parent_index unk0 unk1
+# vertice description
+#    posx posy posz tanx tany tanz norx nory norz binx biny binz
+#    uv0x uv0y uv1x uv1y bone0 bone1 bone2 bone3
+# frame description
+#    posx posy posz rotx roty rotz rotw
+# head description
+#    time flags
+# anim description
+#    tag version frames duration bones names_offset links_offset frames_offset frame_size
 
 
 def read_scm(dirname):
     if path.isfile(dirname): sc = open(dirname, 'rb')
     else: return
 
-    modl = dict(zip(modl_keys, struct.unpack('4s11I', sc.read(48))))
-    modl['tag'] = modl['tag'].decode('ascii')
+    modl = struct.unpack('4s11I', sc.read(48))
+    sc.seek(modl[2])
+    bones = tuple(struct.iter_unpack('16f3f4f4i', sc.read(108 * modl[11])))
+    sc.seek(modl[4])
+    vertices = tuple(struct.iter_unpack('3f3f3f3f2f2f4B', sc.read(68 * modl[6])))
+    sc.seek(modl[7])
+    faces = tuple(struct.unpack('h' * modl[8], sc.read(2 * modl[8])))
+    sc.seek(modl[9])
+    info = struct.unpack('s' * modl[10], sc.read(modl[10]))[0].decode('ascii')
 
-    sc.seek(modl['bone_offset'])
-    bones = [dict(zip(bone_keys, struct.unpack('16f3f4f4l', sc.read(108)))) for ii in range(modl['total_bone_count'])]
-
+    bone_names = []
     for bone in bones:
-        sc.seek(bone['name_offset'])
+        sc.seek(bone[23])
         buffer = b''
         while True:
             b = sc.read(1)
             if b == b'\x00': break
             buffer += b
-        bone['name'] = buffer.decode('ascii')
-
-    sc.seek(modl['vertices_offset'])
-    vertices = [dict(zip(vert_keys, struct.unpack('3f3f3f3f2f2f4B', sc.read(68)))) for ii in range(modl['vertices_count'])]
-
-    sc.seek(modl['faces_offset'])
-    faces = struct.unpack(str(modl['face_count']) + 'h', sc.read(2 * modl['face_count']))
-
-    sc.seek(modl['info_offset'])
-    info = struct.unpack(str(modl['info_count']) + 's', sc.read(modl['info_count']))[0].decode('ascii')
+        bone_names.append(buffer.decode('ascii'))
 
     sc.close()
-    return (bones, vertices, faces)
+    return bones, bone_names, vertices, faces
 
 
 def read_sca(dirname):
     if path.isfile(dirname): sc = open(dirname, 'rb')
     else: return
 
-    anim = dict(zip(anim_keys, struct.unpack('4siifiiiii', sc.read(36))))
-    anim['tag'] = anim['tag'].decode('ascii')
+    anim = struct.unpack('4siifiiiii', sc.read(36))
 
     link_keys = []
-    sc.seek(anim['names_offset'])
-    for ii in range(anim['bones']):
+    sc.seek(anim[5])
+    for ii in range(anim[4]):
         buffer = b''
         while True:
             b = sc.read(1)
@@ -68,16 +63,16 @@ def read_sca(dirname):
         link_keys.append(buffer.decode('ascii'))
 
     # * skipping this as we assume that the skeleton will have the same heirarchy as the scm
-    # sc.seek(anim['links_offset'])
-    # links = dict(zip(link_keys, struct.unpack(str(anim['bones']) + 'i', sc.read(anim['bones'] * 4))))
+    # sc.seek(anim[6])
+    # links = struct.unpack(str(anim[4]) + 'i', sc.read(anim[4] * 4))
 
-    sc.seek(anim['frames_offset'])
-    root = struct.unpack('3f4f', sc.read(28))
+    sc.seek(anim[7])
+    root = struct.unpack('7f', sc.read(28))
     frames = []
-    for ii in range(anim['frames']):
-        frames.append(dict(zip(head_keys, struct.unpack('fi', sc.read(8)))))
-        frames[-1]['bones'] = {}
-        for ii in range(anim['bones']): frames[-1]['bones'].update({link_keys[ii]:dict(zip(fram_keys, struct.unpack('3f4f', sc.read(28))))})
+    for ii in range(anim[2]):
+        header = struct.unpack('fi', sc.read(8))
+        data = list(struct.iter_unpack('7f', sc.read(28 * anim[4])))
+        frames.append([*header, {link_keys[ii]:data[ii] for ii in range(anim[4])}])
 
     sc.close()
     return link_keys, frames
