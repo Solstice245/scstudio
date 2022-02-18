@@ -79,8 +79,15 @@ def read_sca(dirname):
 
 
 def read_bp(dirname):  # TODO Prevent removal of spaces within strings
-    if path.isfile(dirname): bp = ''.join(open(dirname, 'rb').read().decode().split())
+    if path.isfile(dirname): bpf = open(dirname, 'rb').read().decode()
     else: return
+
+    clean_bp = ''
+    for ln in bpf.split('\n'):
+        clean_bp += ''.join(ln.split('#')[0]).split('--')[0]
+
+    bp = ''.join(clean_bp.split())
+
     char_find = {char: bp.find(char) for char in ['{', '}', '=', ',']}
     split = ['', bp]
     split_char = ''
