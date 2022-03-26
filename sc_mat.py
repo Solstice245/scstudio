@@ -51,11 +51,10 @@ def do_seraphim_nodes(tree, albedo_path=None, team_color=(1, 1, 0, 1)):
 
 
 def generate_bl_material(dirname, sc_id, mesh=None, bp=None, lod=0):
-    sc_id = sc_id.split('_')[0] if 'lod0' in sc_id.lower() else sc_id
-    sc_id_nolod = sc_id.split('_')[0]
+    tex_id = '_'.join(sc_id.split('_')[:-1])
     shader = 'Unit'
-    albedo = sc_id_nolod + '_albedo.dds'
-    specteam = sc_id_nolod + '_specteam.dds'
+    albedo = tex_id + '_albedo.dds'
+    specteam = tex_id + '_specteam.dds'
 
     if bp:
         lod_key = 'Display.Mesh.LODs.' + str(lod)

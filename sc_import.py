@@ -207,11 +207,11 @@ def scm_mesh_object(scm, arm_ob, dirname, filename, options, bp=None, lod=0):
 
 def init(dirname, filename, options):
     dot_split = filename.split('.')[0]
-    sc_id = dot_split.split('_')[0] if 'lod0' in filename.lower() else dot_split
+    sc_id = '_'.join(dot_split.split('_')[:-1]) if 'lod0' in filename.lower() else dot_split
     scm = read_scm(path.join(dirname, filename))
     sc_bones, sc_bone_names, sc_vertices, sc_faces = scm
 
-    bp_path = path.join(dirname, dot_split.split('_')[0] + '_unit.bp')
+    bp_path = path.join(dirname, '_'.join(dot_split.split('_')[:-1]) + '_unit.bp')
     bp = read_bp(bp_path) if path.isfile(bp_path) else None
 
     arm = bpy.data.armatures.new(sc_id)

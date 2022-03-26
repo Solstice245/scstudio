@@ -5,13 +5,11 @@ import struct
 #    tag version bone_offset bone_count vertices_offset vert_unk vertices_count
 #    faces_offset face_count info_offset info_count total_bone_count
 # bone description
-#    mxx mxy mxz mxw myx myy myz myw mzx mzy mzz mzw mwx mwy mwz mww
-#    posx posy posz rotx roty rotz rotw name_offset parent_index unk0 unk1
+#    4x4 matrix, position xyz, rotation xyzw, name_offset, parent_index, unk0 unk1
 # vertice description
-#    posx posy posz tanx tany tanz norx nory norz binx biny binz
-#    uv0x uv0y uv1x uv1y bone0 bone1 bone2 bone3
+#    position xyz, tangent xyz, normal xyz, binormal xyz, uv, uv, bone 0-3
 # frame description
-#    posx posy posz rotx roty rotz rotw
+#    position xyz, rotation xyzw
 # head description
 #    time flags
 # anim description
