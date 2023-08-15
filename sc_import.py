@@ -6,15 +6,9 @@ from .sc_mat import generate_bl_material
 from .sc_io import read_scm, read_sca, read_bp
 
 
-def sca_armature_animate(ob, filename, scm_bones=None, scm_bone_names=None):
+def sca_armature_animate(ob, filename):
     sca = read_sca(filename)
     if not sca: return
-
-    if not scm_bones:
-        scm = read_scm(path.join(filename.rsplit('\\', 1)[0], ob.name + '_LOD0.scm'))
-        if not scm: scm = read_scm(path.join(filename.rsplit('\\', 1)[0], ob.name + '_lod0.scm'))
-        if scm: scm_bones, scm_bone_names = scm[0:2]
-        else: return
 
     sc_links, sc_frames = sca
 
@@ -34,13 +28,9 @@ def sca_armature_animate(ob, filename, scm_bones=None, scm_bone_names=None):
 
     for bone_name, bone_frames in bones_frames.items():
 
+        # TODO find closest match as sometimes bone names differ slightly from scm and sca
         bone = ob.data.bones.get(bone_name)
-        scm_match = [scm_bones[ii] for ii, scm_bone_name in enumerate(scm_bone_names) if scm_bone_name == bone_name]
-        scm_bone = scm_match[0] if scm_match else None
-        if not bone or not scm_bone: continue
-
-        scm_mat = Quaternion((scm_bone[19], scm_bone[20], scm_bone[21], scm_bone[22])).to_matrix().to_4x4()
-        scm_mat.translation = Vector((scm_bone[16], -scm_bone[18], scm_bone[17]))
+        if not bone: continue  # TODO warning when bone match cannot be found
 
         loc_path = 'pose.bones["{}"].location'.format(bone_name)
         rot_path = 'pose.bones["{}"].rotation_quaternion'.format(bone_name)
@@ -53,17 +43,24 @@ def sca_armature_animate(ob, filename, scm_bones=None, scm_bone_names=None):
         rotz = anim.action.fcurves.new(rot_path, index=2, action_group=bone_name)
         rotw = anim.action.fcurves.new(rot_path, index=3, action_group=bone_name)
 
+        if not bone.parent:
+            bone_loc_vec = bone.head_local @ bone.matrix_local
+        else:
+            bone_loc_vec = (bone.head_local - bone.parent.head_local) @ (bone.matrix_local @ bone.parent.matrix_local @ Matrix(([1, 0, 0], [ 0, 0, 1], [ 0, -1, 0])).to_4x4())
+
         for bone_frame in bone_frames:
 
-            mat = (Quaternion(bone_frame[3:7])).to_matrix().to_4x4()
-            mat.translation = Vector(bone_frame[0:3])
-            mat.transpose()
-            if not bone.parent: mat @= Matrix(([1, 0, 0], [ 0, 0, 1], [ 0, -1, 0])).to_4x4()
-            mat @= bone.matrix.to_4x4()
-            mat.transpose()
+            if not bone: continue
+
+            sca_mat = Quaternion(bone_frame[3:7]).to_matrix().to_4x4()
+            sca_mat.translation = Vector(bone_frame[0:3])
+            sca_mat.transpose()
             
-            loc = Vector(mat.translation)
-            rot = mat.to_quaternion()
+            if not bone.parent:
+                sca_mat @= Matrix(([1, 0, 0], [ 0, 0, 1], [ 0, -1, 0])).to_4x4()
+            
+            pose_mat = (sca_mat @ bone.matrix.to_4x4()).transposed()
+            loc, rot = pose_mat.to_translation() - bone_loc_vec, pose_mat.to_quaternion()
 
             locx.keyframe_points.insert(bone_frame[7], loc[0])
             locy.keyframe_points.insert(bone_frame[7], loc[1])
@@ -82,7 +79,7 @@ def scm_armature(ob, sc_bones, sc_bone_names, sc_id, options):
     skip = []
 
     for sc_bone, sc_bone_name in zip(sc_bones, sc_bone_names):
-        if arm.edit_bones.get(sc_bone_name): 
+        if arm.edit_bones.get(sc_bone_name):
             skip.append(sc_bone_name)
             continue
         bone = ob.data.edit_bones.new(sc_bone_name)
@@ -99,18 +96,13 @@ def scm_armature(ob, sc_bones, sc_bone_names, sc_id, options):
             sc_parent = sc_bone_names[sc_bone[24]]
             bone.parent = ob.data.edit_bones[sc_parent]
 
-        mat = Matrix((
-            (sc_bone[0], sc_bone[1], sc_bone[2], sc_bone[3]),
-            (sc_bone[4], sc_bone[5], sc_bone[6], sc_bone[7]),
-            (sc_bone[8], sc_bone[9], sc_bone[10], sc_bone[11]),
-            (sc_bone[12], sc_bone[13], sc_bone[14], sc_bone[15])
-        )).inverted()
-
+        mat = Matrix([sc_bone[0:4], sc_bone[4:8], sc_bone[8:12], sc_bone[12:16]]).inverted()
         mat @= bone.parent.matrix.inverted() if sc_bone[24] == 0 else Matrix(([1, 0, 0], [ 0, 0, 1], [ 0, -1, 0])).to_4x4()
+        mat.transpose()
 
-        loc, rot, scl = mat.transposed().decompose()
-        bone.head = loc
-        bone.tail = (rot.to_matrix() @ Vector((0, 1, 0))) + bone.head
+        bone.head = mat.translation
+        bone.tail = (mat.to_quaternion().to_matrix() @ Vector((0, 1, 0))) + bone.head
+        bone.matrix = mat
 
     bpy.ops.object.mode_set(mode='OBJECT', toggle=False)
 
@@ -238,4 +230,4 @@ def init(dirname, filename, options):
             end_key = key.split('.')[-1]
             if end_key == 'Animation' or end_key in ['AnimationIdle', 'AnimationLand', 'AnimationOpen', 'AnimationTakeoff', 'AnimationWalk']:
                 sca = read_sca(path.join(dirname, bp[key].split('/')[-1]))
-                sca_armature_animate(arm_ob, path.join(dirname, bp[key].split('/')[-1]), sc_bones, sc_bone_names)
+                sca_armature_animate(arm_ob, path.join(dirname, bp[key].split('/')[-1]))
