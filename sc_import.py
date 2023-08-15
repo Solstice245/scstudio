@@ -48,6 +48,17 @@ def sca_armature_animate(ob, filename):
         else:
             bone_loc_vec = (bone.head_local - bone.parent.head_local) @ (bone.matrix_local @ bone.parent.matrix_local @ Matrix(([1, 0, 0], [ 0, 0, 1], [ 0, -1, 0])).to_4x4())
 
+        len_frames = len(bone_frames)
+        key_sel = [False] * len_frames
+        key_interp = [1] * len_frames
+        key_co_locx = []
+        key_co_locy = []
+        key_co_locz = []
+        key_co_rotx = []
+        key_co_roty = []
+        key_co_rotz = []
+        key_co_rotw = []
+
         for bone_frame in bone_frames:
 
             if not bone: continue
@@ -62,13 +73,25 @@ def sca_armature_animate(ob, filename):
             pose_mat = (sca_mat @ bone.matrix.to_4x4()).transposed()
             loc, rot = pose_mat.to_translation() - bone_loc_vec, pose_mat.to_quaternion()
 
-            locx.keyframe_points.insert(bone_frame[7], loc[0])
-            locy.keyframe_points.insert(bone_frame[7], loc[1])
-            locz.keyframe_points.insert(bone_frame[7], loc[2])
-            rotx.keyframe_points.insert(bone_frame[7], rot[0])
-            roty.keyframe_points.insert(bone_frame[7], rot[1])
-            rotz.keyframe_points.insert(bone_frame[7], rot[2])
-            rotw.keyframe_points.insert(bone_frame[7], rot[3])
+            key_co_locx += [bone_frame[7], loc[0]]
+            key_co_locy += [bone_frame[7], loc[1]]
+            key_co_locz += [bone_frame[7], loc[2]]
+            key_co_rotx += [bone_frame[7], rot[0]]
+            key_co_roty += [bone_frame[7], rot[1]]
+            key_co_rotz += [bone_frame[7], rot[2]]
+            key_co_rotw += [bone_frame[7], rot[3]]
+
+        fcurve_data_pairs = [(locx, key_co_locx), (locy, key_co_locy), (locz, key_co_locz), (rotx, key_co_rotx), (roty, key_co_roty), (rotz, key_co_rotz), (rotw, key_co_rotw)]
+
+        for fcurve, key_co in fcurve_data_pairs:
+            fcurve.select = False
+            fcurve.keyframe_points.add(len_frames)
+            fcurve.keyframe_points.foreach_set('co', key_co)
+            fcurve.keyframe_points.foreach_set('interpolation', key_interp)
+            fcurve.keyframe_points.foreach_set('select_control_point', key_sel)
+            fcurve.keyframe_points.foreach_set('select_left_handle', key_sel)
+            fcurve.keyframe_points.foreach_set('select_right_handle', key_sel)
+
 
 
 def scm_armature(ob, sc_bones, sc_bone_names, sc_id, options):
@@ -228,6 +251,6 @@ def init(dirname, filename, options):
     if options.get('anims', True) and bp:
         for key in bp.keys():
             end_key = key.split('.')[-1]
-            if end_key == 'Animation' or end_key in ['AnimationIdle', 'AnimationLand', 'AnimationOpen', 'AnimationTakeoff', 'AnimationWalk']:
+            if end_key == 'Animation' or end_key in ['AnimationActivate', 'AnimationIdle', 'AnimationLand', 'AnimationOpen', 'AnimationTakeoff', 'AnimationWalk']:
                 sca = read_sca(path.join(dirname, bp[key].split('/')[-1]))
                 sca_armature_animate(arm_ob, path.join(dirname, bp[key].split('/')[-1]))
