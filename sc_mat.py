@@ -4,13 +4,17 @@ from os import path
 
 
 def do_unit_nodes(tree, albedo_path=None, specteam_path=None, team_color=(0, 0, 1, 1)):
+    albedo_image_node_im = image_utils.load_image(albedo_path, place_holder=not path.isfile(albedo_path), check_existing=True)
+    albedo_image_node_im.alpha_mode = 'CHANNEL_PACKED'
     albedo_image_node = tree.nodes.new('ShaderNodeTexImage')
-    albedo_image_node.image = image_utils.load_image(albedo_path, place_holder=not path.isfile(albedo_path), check_existing=True)
+    albedo_image_node.image = albedo_image_node_im
     albedo_image_node.interpolation = 'Closest'
     albedo_image_node.location = (-350.0, -150.0)
 
+    specteam_image_node_im = image_utils.load_image(specteam_path, place_holder=not path.isfile(specteam_path), check_existing=True)
+    specteam_image_node_im.alpha_mode = 'CHANNEL_PACKED'
     specteam_image_node = tree.nodes.new('ShaderNodeTexImage')
-    specteam_image_node.image = image_utils.load_image(specteam_path, place_holder=not path.isfile(specteam_path), check_existing=True)
+    specteam_image_node.image = specteam_image_node_im
     specteam_image_node.interpolation = 'Closest'
     specteam_image_node.location = (-350.0, 150.0)
 
@@ -30,8 +34,10 @@ def do_unit_nodes(tree, albedo_path=None, specteam_path=None, team_color=(0, 0, 
 
 
 def do_seraphim_nodes(tree, albedo_path=None, team_color=(1, 1, 0, 1)):
+    albedo_image_node_im = image_utils.load_image(albedo_path, place_holder=not path.isfile(albedo_path), check_existing=True)
+    albedo_image_node_im.alpha_mode = 'CHANNEL_PACKED'
     albedo_image_node = tree.nodes.new('ShaderNodeTexImage')
-    albedo_image_node.image = image_utils.load_image(albedo_path, place_holder=not path.isfile(albedo_path), check_existing=True)
+    albedo_image_node.image = albedo_image_node_im
     albedo_image_node.interpolation = 'Closest'
     albedo_image_node.location = (-350.0, 0.0)
 
