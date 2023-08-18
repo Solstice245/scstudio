@@ -48,7 +48,7 @@ def read_scm(filepath):
     sc.seek(modl[4])
     vertices = tuple(struct.iter_unpack('3f3f3f3f2f2f4B', sc.read(68 * modl[6])))
     sc.seek(modl[7])
-    faces = tuple(struct.unpack('h' * modl[8], sc.read(2 * modl[8])))
+    faces = tuple(struct.unpack('H' * modl[8], sc.read(2 * modl[8])))
     sc.seek(modl[9])
     if modl[10]:
         info = struct.unpack('s' * modl[10], sc.read(modl[10]))[0].decode('ascii')
@@ -79,7 +79,7 @@ def write_scm(filepath, modl, bones, bone_names, vertices, faces, info):
         pad_file(f, b'VERT')
         f.write(struct.pack('3f3f3f3f2f2f4B' * (len(vertices) // 20), *vertices))
         pad_file(f, b'FACE')
-        f.write(struct.pack('h' * len(faces) , *faces))
+        f.write(struct.pack('H' * len(faces) , *faces))
 
         if len(info):
             pad_file(f, b'INFO')
