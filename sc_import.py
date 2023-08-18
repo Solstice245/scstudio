@@ -132,7 +132,7 @@ def scm_mesh(scm, me, options):
 
     sc_face_data = []
     for ii in range(len(sc_faces)):
-        sc_face_data.append(sc_faces[ii] + (2**15*2 if sc_faces[ii] < 0 else 0))
+        sc_face_data.append(sc_faces[ii])
     sc_tri_seq = range(0, len(sc_faces), 3)
 
     me.vertices.add(len(sc_vertices))

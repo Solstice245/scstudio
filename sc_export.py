@@ -78,12 +78,11 @@ def scm_data(ob):
             co = co_correction_mat @ ob.matrix_local @ vert.co
             # sort by weight and then pick the first one with a matching bone
             deformation = 0
-            if vert[layer_deform].items():
-                deformation_pairs = sorted(vert[layer_deform].items(), key=lambda x: x[1])
-                for deform_pair in deformation_pairs:
-                    if group_ii_to_bone_ii[deform_pair[0]]:
-                        deformation = deform_pair[0]
-                        break
+            deformation_pairs = sorted(vert[layer_deform].items(), key=lambda x: x[1])
+            for deform_pair in deformation_pairs:
+                if group_ii_to_bone_ii.get(deform_pair[0]):
+                    deformation = group_ii_to_bone_ii[deform_pair[0]]
+                    break
 
             for loop in vert.link_loops:
                 try:

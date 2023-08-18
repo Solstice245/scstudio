@@ -46,7 +46,7 @@ def read_scm(filepath):
     sc.seek(modl[2])
     bones = tuple(struct.iter_unpack('16f3f4f4i', sc.read(108 * modl[11])))
     sc.seek(modl[4])
-    vertices = tuple(struct.iter_unpack('3f3f3f3f2f2f4B', sc.read(68 * modl[6])))
+    verts = tuple(struct.iter_unpack('3f3f3f3f2f2f4B', sc.read(68 * modl[6])))
     sc.seek(modl[7])
     faces = tuple(struct.unpack('H' * modl[8], sc.read(2 * modl[8])))
     sc.seek(modl[9])
@@ -64,10 +64,10 @@ def read_scm(filepath):
         bone_names.append(buffer.decode('ascii'))
 
     sc.close()
-    return bones, bone_names, vertices, faces
+    return bones, bone_names, verts, faces
 
 
-def write_scm(filepath, modl, bones, bone_names, vertices, faces, info):
+def write_scm(filepath, modl, bones, bone_names, verts, faces, info):
     with open(filepath, 'w+b') as f:
         f.write(struct.pack('4s11I', *modl))
 
@@ -77,7 +77,7 @@ def write_scm(filepath, modl, bones, bone_names, vertices, faces, info):
         pad_file(f, b'BONE')
         f.write(struct.pack('16f3f4f4i' * (len(bones) // 27), *bones))
         pad_file(f, b'VERT')
-        f.write(struct.pack('3f3f3f3f2f2f4B' * (len(vertices) // 20), *vertices))
+        f.write(struct.pack('3f3f3f3f2f2f4B' * (len(verts) // 20), *verts))
         pad_file(f, b'FACE')
         f.write(struct.pack('H' * len(faces) , *faces))
 
@@ -90,7 +90,7 @@ def read_sca(filepath):
     if path.isfile(filepath): sc = open(filepath, 'rb')
     else: return
 
-    anim = struct.unpack('4siifiiiii', sc.read(36))
+    anim = struct.unpack('4sIIfIIIII', sc.read(36))
 
     link_keys = []
     sc.seek(anim[5])
@@ -110,7 +110,7 @@ def read_sca(filepath):
     root = struct.unpack('7f', sc.read(28))
     frames = []
     for ii in range(anim[2]):
-        header = struct.unpack('fi', sc.read(8))
+        header = struct.unpack('fI', sc.read(8))
         data = list(struct.iter_unpack('7f', sc.read(28 * anim[4])))
         frames.append([*header, {link_keys[ii]:data[ii] for ii in range(anim[4])}])
 
@@ -156,7 +156,7 @@ def read_bp(filepath):  # TODO Prevent removal of spaces within strings
 
         if len(split) == 1: break
 
-        char_find = {char: split[1].find(char) for char in ['{', '}', '=', ',']}
+        char_find = {char: split[1].find(char) for char in ('{', '}', '=', ',')}
         for key in char_find.keys(): char_find[key] = 2**16 if char_find[key] == -1 else char_find[key]
 
         if split_char == '=': keys.append(split[0])
