@@ -1,5 +1,6 @@
 from os import path
 import struct
+import math
 
 # modl description
 #    tag version bone_offset bone_count vertices_offset vert_unk vertices_count
@@ -16,8 +17,29 @@ import struct
 #    tag version frames duration bones names_offset links_offset frames_offset frame_size
 
 
-def read_scm(dirname):
-    if path.isfile(dirname): sc = open(dirname, 'rb')
+def pad(size):
+    val = 32 - (size % 32)
+
+    if (val > 31):
+        return 0
+
+    return val
+
+
+def pad_file(file, s4comment):
+    N = pad(file.tell()) - 4
+    #filldata = b'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX'
+    filldata = b'\xC5\xC5\xC5\xC5\xC5\xC5\xC5\xC5\xC5\xC5\xC5\xC5\xC5\xC5\xC5\xC5'#the original supcom files use Å instead of X as padding, and the max importer searches for this character explicitly.
+    # C5 is Å in hex code, and its 197 which is over 128 so we put it as an escape char so python doesnt explode
+    padding = struct.pack(str(N)+'s4s', filldata[0:N], s4comment)
+
+    file.write(padding)
+
+    return file.tell()
+
+
+def read_scm(filepath):
+    if path.isfile(filepath): sc = open(filepath, 'rb')
     else: return
 
     modl = struct.unpack('4s11I', sc.read(48))
@@ -28,7 +50,8 @@ def read_scm(dirname):
     sc.seek(modl[7])
     faces = tuple(struct.unpack('h' * modl[8], sc.read(2 * modl[8])))
     sc.seek(modl[9])
-    info = struct.unpack('s' * modl[10], sc.read(modl[10]))[0].decode('ascii')
+    if modl[10]:
+        info = struct.unpack('s' * modl[10], sc.read(modl[10]))[0].decode('ascii')
 
     bone_names = []
     for bone in bones:
@@ -36,7 +59,7 @@ def read_scm(dirname):
         buffer = b''
         while True:
             b = sc.read(1)
-            if b == b'\x00': break
+            if b == b'\x00' or b == b'\xC5': break
             buffer += b
         bone_names.append(buffer.decode('ascii'))
 
@@ -44,8 +67,27 @@ def read_scm(dirname):
     return bones, bone_names, vertices, faces
 
 
-def read_sca(dirname):
-    if path.isfile(dirname): sc = open(dirname, 'rb')
+def write_scm(filepath, modl, bones, bone_names, vertices, faces, info):
+    with open(filepath, 'w+b') as f:
+        f.write(struct.pack('4s11I', *modl))
+
+        pad_file(f, b'NAME')
+        for name in bone_names:
+            f.write(struct.pack(f'{str(len(name))}sx', name))
+        pad_file(f, b'BONE')
+        f.write(struct.pack('16f3f4f4i' * (len(bones) // 27), *bones))
+        pad_file(f, b'VERT')
+        f.write(struct.pack('3f3f3f3f2f2f4B' * (len(vertices) // 20), *vertices))
+        pad_file(f, b'FACE')
+        f.write(struct.pack('h' * len(faces) , *faces))
+
+        if len(info):
+            pad_file(f, b'INFO')
+            struct.pack(f'{len(info)}s', info)
+
+
+def read_sca(filepath):
+    if path.isfile(filepath): sc = open(filepath, 'rb')
     else: return
 
     anim = struct.unpack('4siifiiiii', sc.read(36))
@@ -56,7 +98,7 @@ def read_sca(dirname):
         buffer = b''
         while True:
             b = sc.read(1)
-            if b == b'\x00': break
+            if b == b'\x00' or b == b'\xC5': break
             buffer += b
         link_keys.append(buffer.decode('ascii'))
 
@@ -76,8 +118,17 @@ def read_sca(dirname):
     return link_keys, frames
 
 
-def read_bp(dirname):  # TODO Prevent removal of spaces within strings
-    if path.isfile(dirname): bpf = open(dirname, 'rb').read().decode()
+def write_sca(filepath):
+    with open(filepath, 'w+b') as f:
+        f.write(struct.pack('4siifiiiii'), head)
+        f.write(struct.pack('7f', root))
+
+        for frame in frames:
+            f.write(struct.pack(f'fi{len(bones)}f'))
+
+
+def read_bp(filepath):  # TODO Prevent removal of spaces within strings
+    if path.isfile(filepath): bpf = open(filepath, 'rb').read().decode()
     else: return
 
     clean_bp = ''

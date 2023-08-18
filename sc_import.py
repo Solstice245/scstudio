@@ -6,14 +6,17 @@ from .sc_mat import generate_bl_material
 from .sc_io import read_scm, read_sca, read_bp
 
 
-def sca_armature_animate(ob, filename):
-    sca = read_sca(filename)
+co_correction_mat = Matrix(([1, 0, 0], [ 0, 0, 1], [ 0, -1, 0])).to_4x4()
+
+
+def sca(ob, dirname, filename):
+    sca = read_sca(path.join(dirname, filename))
     if not sca: return
 
     sc_links, sc_frames = sca
 
     anim = ob.sc_animations.add()
-    anim.name = filename.split('\\')[-1]
+    anim.name = filename
     anim.action = bpy.data.actions.new(anim.name)
 
     bones_frames = {sc_link:[] for sc_link in sc_links}
@@ -46,7 +49,7 @@ def sca_armature_animate(ob, filename):
         if not bone.parent:
             bone_loc_vec = bone.head_local @ bone.matrix_local
         else:
-            bone_loc_vec = (bone.head_local - bone.parent.head_local) @ (bone.matrix_local @ bone.parent.matrix_local @ Matrix(([1, 0, 0], [ 0, 0, 1], [ 0, -1, 0])).to_4x4())
+            bone_loc_vec = (bone.head_local - bone.parent.head_local) @ (bone.matrix_local @ bone.parent.matrix_local @ co_correction_mat)
 
         len_frames = len(bone_frames)
         key_sel = [False] * len_frames
@@ -68,18 +71,18 @@ def sca_armature_animate(ob, filename):
             sca_mat.transpose()
             
             if not bone.parent:
-                sca_mat @= Matrix(([1, 0, 0], [ 0, 0, 1], [ 0, -1, 0])).to_4x4()
+                sca_mat @= co_correction_mat
             
             pose_mat = (sca_mat @ bone.matrix.to_4x4()).transposed()
             loc, rot = pose_mat.to_translation() - bone_loc_vec, pose_mat.to_quaternion()
 
-            key_co_locx += [bone_frame[7], loc[0]]
-            key_co_locy += [bone_frame[7], loc[1]]
-            key_co_locz += [bone_frame[7], loc[2]]
-            key_co_rotx += [bone_frame[7], rot[0]]
-            key_co_roty += [bone_frame[7], rot[1]]
-            key_co_rotz += [bone_frame[7], rot[2]]
-            key_co_rotw += [bone_frame[7], rot[3]]
+            key_co_locx.extend((bone_frame[7], loc[0]))
+            key_co_locy.extend((bone_frame[7], loc[1]))
+            key_co_locz.extend((bone_frame[7], loc[2]))
+            key_co_rotx.extend((bone_frame[7], rot[0]))
+            key_co_roty.extend((bone_frame[7], rot[1]))
+            key_co_rotz.extend((bone_frame[7], rot[2]))
+            key_co_rotw.extend((bone_frame[7], rot[3]))
 
         fcurve_data_pairs = [(locx, key_co_locx), (locy, key_co_locy), (locz, key_co_locz), (rotx, key_co_rotx), (roty, key_co_roty), (rotz, key_co_rotz), (rotw, key_co_rotw)]
 
@@ -93,34 +96,22 @@ def sca_armature_animate(ob, filename):
             fcurve.keyframe_points.foreach_set('select_right_handle', key_sel)
 
 
-
-def scm_armature(ob, sc_bones, sc_bone_names, sc_id, options):
-    arm = ob.data
+def scm_armature(sc_bones, sc_bone_names, sc_id, options):
+    arm = bpy.data.armatures.new(sc_id)
+    ob = bpy.data.objects.new(sc_id, arm)
+    bpy.context.collection.objects.link(ob)
     bpy.context.view_layer.objects.active = ob
     bpy.ops.object.mode_set(mode='EDIT', toggle=False)
 
-    skip = []
-
     for sc_bone, sc_bone_name in zip(sc_bones, sc_bone_names):
-        if arm.edit_bones.get(sc_bone_name):
-            skip.append(sc_bone_name)
-            continue
         bone = ob.data.edit_bones.new(sc_bone_name)
-
-    for ii, sc_bone in enumerate(sc_bones):
-
-        sc_bone_name = sc_bone_names[ii]
-
-        if sc_bone_name in skip: continue
-
-        bone = ob.data.edit_bones.get(sc_bone_name)
 
         if sc_bone[24] >= 0:
             sc_parent = sc_bone_names[sc_bone[24]]
             bone.parent = ob.data.edit_bones[sc_parent]
 
         mat = Matrix([sc_bone[0:4], sc_bone[4:8], sc_bone[8:12], sc_bone[12:16]]).inverted()
-        mat @= bone.parent.matrix.inverted() if sc_bone[24] == 0 else Matrix(([1, 0, 0], [ 0, 0, 1], [ 0, -1, 0])).to_4x4()
+        mat @= bone.parent.matrix.inverted() if sc_bone[24] == 0 else co_correction_mat
         mat.transpose()
 
         bone.head = mat.translation
@@ -132,16 +123,12 @@ def scm_armature(ob, sc_bones, sc_bone_names, sc_id, options):
     return ob
 
 
-def scm_mesh(scm, ob, dirname, filename, options, bp=None, lod=0):
+def scm_mesh(scm, me, options):
     sc_bones, sc_bone_names, sc_vertices, sc_faces = scm
-
-    me = ob.data
 
     sc_vert_data = []
     for v in sc_vertices:
-        sc_vert_data.append(v[0])
-        sc_vert_data.append(-v[2])
-        sc_vert_data.append(v[1])
+        sc_vert_data.extend((v[0], -v[2], v[1]))
 
     sc_face_data = []
     for ii in range(len(sc_faces)):
@@ -159,40 +146,43 @@ def scm_mesh(scm, ob, dirname, filename, options, bp=None, lod=0):
     me.update()
     me.validate()
 
-    for coord in ['uv0', 'uv1']: me.uv_layers.new(name=coord)
-
-    bpy.context.view_layer.objects.active = ob
-    bpy.ops.object.mode_set(mode='EDIT', toggle=False)
-
-    bm = bmesh.from_edit_mesh(ob.data)
+    bm = bmesh.new()
+    bm.from_mesh(me)
 
     bm.verts.layers.deform.verify()
     deform = bm.verts.layers.deform.active
     for sc_vert, bm_vert in zip(sc_vertices, bm.verts): bm_vert[deform][sc_vert[16]] = 1.0
 
-    uvl0 = bm.loops.layers.uv[0]
-    uvl1 = bm.loops.layers.uv[1]
+    uvl0 = bm.loops.layers.uv.new('SCM 0')
+    uvl1 = bm.loops.layers.uv.new('SCM 1')
     for face in bm.faces:
-        face.smooth = options.get('smooth_shading', True)
+        face.smooth = True
         for loop in face.loops:
             sc_vert = sc_vertices[loop.vert.index]
             loop[uvl0].uv = (sc_vert[12], -sc_vert[13] + 1)
             loop[uvl1].uv = (sc_vert[14], -sc_vert[15] + 1)
 
-    if options.get('generate_materials', True):
-        generate_bl_material(dirname, filename, me, bp, lod)
+    doubles = bmesh.ops.find_doubles(bm, verts=bm.verts, dist=0.00001)['targetmap']
+    for origin in list(doubles.keys()):
+        target = doubles[origin]
 
-    if options.get('sharp_edges', True):
-        for edge in bm.edges: edge.smooth = len(edge.link_faces) > 1
-        bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=0.00001)
-        bmesh.ops.join_triangles(bm, faces=bm.faces, cmp_sharp=True, cmp_uvs=True, angle_face_threshold=0.75, angle_shape_threshold=0.75)
+        for edge in [*origin.link_edges, *target.link_edges]:
+            if len(edge.link_faces) == 1:
+                edge.smooth = False
 
-    bmesh.update_edit_mesh(me)
+        sv0 = sc_vertices[origin.index]
+        sv1 = sc_vertices[target.index]
+
+        if (*sv0[6:9], *sv0[12:18]) != (*sv0[6:9], *sv0[12:18]):
+            del doubles[origin]
+    bmesh.ops.weld_verts(bm, targetmap=doubles)
+
+    if options.get('destructive', True):
+        bmesh.ops.dissolve_limit(bm, angle_limit=0.1, use_dissolve_boundaries=False, verts=bm.verts, edges=bm.edges, delimit={'NORMAL', 'UV'})
+        bmesh.ops.join_triangles(bm, faces=bm.faces, cmp_sharp=True, cmp_uvs=True, angle_face_threshold=1.0, angle_shape_threshold=1.0)
+
+    bm.to_mesh(me)
     bm.free()
-
-    bpy.ops.object.mode_set(mode='OBJECT', toggle=False)
-
-    return me
 
 
 def scm_mesh_object(scm, arm_ob, dirname, filename, options, bp=None, lod=0):
@@ -209,48 +199,30 @@ def scm_mesh_object(scm, arm_ob, dirname, filename, options, bp=None, lod=0):
 
     if lod > 0: ob.display_type = 'WIRE'
 
-    scm_mesh(scm, ob, dirname, filename, options, bp, lod)
-
-    modifier = ob.modifiers.new('EdgeSplit', 'EDGE_SPLIT')
-    modifier.use_edge_angle = False
+    scm_mesh(scm, me, options)
 
     modifier = ob.modifiers.new('Armature', 'ARMATURE')
     modifier.object = arm_ob
 
+    modifier = ob.modifiers.new('EdgeSplit', 'EDGE_SPLIT')
+    modifier.use_edge_angle = False
+
+    if options.get('generate_materials', True):
+        generate_bl_material(dirname, filename, me, bp, lod)
+
     return ob
 
 
-def init(dirname, filename, options):
-    dot_split = filename.split('.')[0]
-    sc_id = '_'.join(dot_split.split('_')[:-1]) if 'lod0' in filename.lower() else dot_split
+def scm(dirname, filename, options):
+    sc_id = filename.rsplit('.')[0]
     scm = read_scm(path.join(dirname, filename))
     sc_bones, sc_bone_names, sc_vertices, sc_faces = scm
 
-    bp_path = path.join(dirname, '_'.join(dot_split.split('_')[:-1]) + '_unit.bp')
+    bp_path = path.join(dirname, '_'.join(sc_id.split('_')[:-1]) + '_unit.bp')
     bp = read_bp(bp_path) if path.isfile(bp_path) else None
 
-    arm = bpy.data.armatures.new(sc_id)
-    arm_ob = bpy.data.objects.new(sc_id, arm)
-    bpy.context.collection.objects.link(arm_ob)
-    scm_armature(arm_ob, sc_bones, sc_bone_names, sc_id, options)
-    ob = scm_mesh_object(scm, arm_ob, dirname, dot_split, options, bp, lod=0)
+    try: lod = int(sc_id.rsplit('_lod')[1][0])
+    except (ValueError, IndexError) as e: lod = 0
 
-    if options.get('lod', True) and 'lod0' in dot_split.lower() and bp:
-        lod_count = 0
-        for key in bp.keys():
-            if 'Display.Mesh.LODs.' in key:
-                lod_ii = int(key.split('Display.Mesh.LODs.')[1].split('.')[0])
-                if lod_ii > lod_count: lod_count = lod_ii
-
-        for ii in range(1, lod_count + 1):
-            lod_scm = read_scm(path.join(dirname, sc_id + '_lod' + str(ii) + '.scm'))
-            if not lod_scm: continue
-            scm_armature(arm_ob, lod_scm[0], lod_scm[1], sc_id, options)
-            lod_ob = scm_mesh_object(lod_scm, arm_ob, dirname, sc_id + '_lod' + str(ii), options, bp, lod=ii)
-
-    if options.get('anims', True) and bp:
-        for key in bp.keys():
-            end_key = key.split('.')[-1]
-            if end_key == 'Animation' or end_key in ['AnimationActivate', 'AnimationIdle', 'AnimationLand', 'AnimationOpen', 'AnimationTakeoff', 'AnimationWalk']:
-                sca = read_sca(path.join(dirname, bp[key].split('/')[-1]))
-                sca_armature_animate(arm_ob, path.join(dirname, bp[key].split('/')[-1]))
+    arm_ob = scm_armature(sc_bones, sc_bone_names, sc_id, options)
+    ob = scm_mesh_object(scm, arm_ob, dirname, sc_id, options, bp, lod=lod)
