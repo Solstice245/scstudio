@@ -5,9 +5,9 @@ from . import sc_import
 from . import sc_export
 
 bl_info = {
-    'name': 'Supreme Commander, SCM/SCA format',
+    'name': 'Supreme Commander SCM & SCA format',
     'author': 'Solstice245',
-    'version': (0, 2, 0),
+    'version': (1, 0, 0),
     'blender': (3, 0, 0),
     'location': 'Properties Editor -> Object Data -> SupCom Model Data Panel',
     'description': 'Enables import and (eventually) export of Supreme Commander model data',
@@ -52,18 +52,36 @@ class SCAnimationProps(bpy.types.PropertyGroup):
 
 class SCAnimationImport(bpy.types.Operator):
     bl_idname = 'sc.animations_import'
-    bl_label = 'Import .SCA Files'
+    bl_label = 'Import (.sca)'
     bl_description = 'Adds an animation management item and an associated action from reading the given file'
     bl_options = {'UNDO'}
 
     filter_glob: bpy.props.StringProperty(options={'HIDDEN'}, default='*.sca')
-    directory: bpy.props.StringProperty(options={'HIDDEN'})
+    directory: bpy.props.StringProperty()
     files: bpy.props.CollectionProperty(type=bpy.types.OperatorFileListElement, options={'HIDDEN', 'SKIP_SAVE'})
 
     def execute(self, context):
-        print(self.directory)
         for filename in self.files:
             sc_import.sca(context.object, self.directory, filename.name)
+        return {'FINISHED'}
+
+    def invoke(self, context, event):
+        context.window_manager.fileselect_add(self)
+        return {'RUNNING_MODAL'}
+
+
+class SCAnimationExport(bpy.types.Operator):
+    '''Saves an SCA file from an armature's SC Animation'''
+    bl_idname = 'sc.animation_export'
+    bl_label = 'Export (.sca)'
+    bl_description = 'Exports an .sca file using data from the selected animation management item and its associated action'
+
+    filter_glob: bpy.props.StringProperty(options={'HIDDEN'}, default='*.sca')
+    directory: bpy.props.StringProperty(options={'HIDDEN'})
+
+    def execute(self, context):
+        ob = context.object
+        sc_export.sca(self.directory, ob, ob.sc_animations[ob.sc_animations_index], ob.sc_animations_index)
         return {'FINISHED'}
 
     def invoke(self, context, event):
@@ -141,9 +159,9 @@ def sc_anim_update(self, context):
         context.scene.frame_end = anim.frame_end - 1
 
 
-class SCDataPanel(bpy.types.Panel):
+class SCAnimationPanel(bpy.types.Panel):
     bl_idname = 'OBJECT_PT_SC_ANIMATION'
-    bl_label = 'SupCom Model Data'
+    bl_label = 'Supreme Commander Animations'
     bl_space_type = 'PROPERTIES'
     bl_region_type = 'WINDOW'
     bl_context = 'data'
@@ -159,8 +177,8 @@ class SCDataPanel(bpy.types.Panel):
 
         rows = 4 if len(ob.sc_animations) else 2
 
-        layout.label(text='Animations')
         layout.operator('sc.animations_import')
+        layout.separator()
         row = layout.row()
         col = row.column()
         col.template_list('UI_UL_list', 'sc_animations', ob, 'sc_animations', ob, 'sc_animations_index', rows=rows)
@@ -180,6 +198,8 @@ class SCDataPanel(bpy.types.Panel):
         row = layout.row()
         row.prop(anim, 'frame_start', text='Frame Range')
         row.prop(anim, 'frame_end', text='')
+        layout.separator()
+        layout.operator('sc.animation_export')
 
 
 class SCImportProps(bpy.types.PropertyGroup):
@@ -189,17 +209,18 @@ class SCImportProps(bpy.types.PropertyGroup):
 
 class SCImportOperator(bpy.types.Operator):
     bl_idname = 'sc.import'
-    bl_label = 'Import .SCM'
+    bl_label = 'Import (.scm)'
     bl_options = {'UNDO'}
 
     filter_glob: bpy.props.StringProperty(options={'HIDDEN'}, default='*.scm')
-    directory: bpy.props.StringProperty(options={'HIDDEN'})
-    filename: bpy.props.StringProperty(options={'HIDDEN'})
+    directory: bpy.props.StringProperty()
+    files: bpy.props.CollectionProperty(type=bpy.types.OperatorFileListElement, options={'HIDDEN', 'SKIP_SAVE'})
 
     def execute(self, context):
-        t = time()
-        sc_import.scm(self.directory, self.filename, dict(context.scene.sc_import_props))
-        print('import time', self.directory, self.filename, time() - t)
+        for filename in self.files:
+            t = time()
+            sc_import.scm(self.directory, filename.name, dict(context.scene.sc_import_props))
+            print('import time', self.directory, filename.name, time() - t)
         return {'FINISHED'}
 
     def invoke(self, context, event):
@@ -213,26 +234,27 @@ class SCImportOperator(bpy.types.Operator):
 
 
 class SCExportOperator(bpy.types.Operator):
-    '''Saves SCM/SCA files from an armature'''
+    '''Saves an SCM file from an armature'''
     bl_idname = 'sc.export'
-    bl_label = 'Export SCM/SCA'
+    bl_label = 'Export SCM'
 
-    filename_ext = '.scm'
     filter_glob: bpy.props.StringProperty(options={'HIDDEN'}, default='*.scm')
-    filepath: bpy.props.StringProperty(name='File Path', description='File path for export operation', maxlen=1023, default='')
+    directory: bpy.props.StringProperty(options={'HIDDEN'})
 
     @classmethod
     def poll(cls, context):
-        return (context.object and context.object.type == 'ARMATURE')
+        return (context.object and [ob for ob in context.selected_objects if ob.type == 'ARMATURE'])
 
     def invoke(self, context, event):
         context.window_manager.fileselect_add(self)
         return {'RUNNING_MODAL'}
 
     def execute(self, context):
-        t = time()
-        sc_export.scm(self.filepath, sc_export.scm_data(context.active_object))
-        print('export time', self.filepath, time() - t)
+        for ob in context.selected_objects:
+            if ob.type != 'ARMATURE': continue
+            t = time()
+            sc_export.scm(self.directory, ob)
+            print('export time', self.directory, ob.name, time() - t)
         return {'FINISHED'}
 
 
@@ -248,7 +270,8 @@ classes = (
     SCAnimationRemove,
     SCAnimationMove,
     SCAnimationImport,
-    SCDataPanel,
+    SCAnimationExport,
+    SCAnimationPanel,
     SCImportProps,
     SCImportOperator,
     SCExportOperator,

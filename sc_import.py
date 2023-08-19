@@ -16,15 +16,18 @@ def sca(ob, dirname, filename):
     sc_links, sc_frames = sca
 
     anim = ob.sc_animations.add()
-    anim.name = filename
+    anim.name = filename.rsplit('.')[0]
     anim.action = bpy.data.actions.new(anim.name)
 
     bones_frames = {sc_link:[] for sc_link in sc_links}
 
+    anim.frame_start = 2147483647
+    anim.frame_end = -2147483648
+
     for sc_frame in sc_frames:
         bl_time = round(sc_frame[0] * 30)
-        anim.frame_start = bl_time if bl_time < anim.frame_start else anim.frame_start
-        anim.frame_end = bl_time if bl_time > anim.frame_end else anim.frame_end
+        anim.frame_start = min(bl_time, anim.frame_start)
+        anim.frame_end = max(bl_time, anim.frame_end)
 
         for sc_link in sc_links:
             bones_frames[sc_link].append([*sc_frame[2][sc_link], bl_time, sc_frame[1]])
@@ -207,7 +210,7 @@ def scm_mesh_object(scm, arm_ob, dirname, filename, options, bp=None, lod=0):
     modifier = ob.modifiers.new('EdgeSplit', 'EDGE_SPLIT')
     modifier.use_edge_angle = False
 
-    if options.get('generate_materials', True):
+    if options.get('generate_materials', True) and bp:
         generate_bl_material(dirname, filename, me, bp, lod)
 
     return ob

@@ -19,22 +19,14 @@ import math
 
 def pad(size):
     val = 32 - (size % 32)
-
-    if (val > 31):
-        return 0
-
+    if (val > 31): return 0
     return val
 
 
 def pad_file(file, s4comment):
     N = pad(file.tell()) - 4
-    #filldata = b'XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX'
-    filldata = b'\xC5\xC5\xC5\xC5\xC5\xC5\xC5\xC5\xC5\xC5\xC5\xC5\xC5\xC5\xC5\xC5'#the original supcom files use Å instead of X as padding, and the max importer searches for this character explicitly.
-    # C5 is Å in hex code, and its 197 which is over 128 so we put it as an escape char so python doesnt explode
-    padding = struct.pack(str(N)+'s4s', filldata[0:N], s4comment)
-
-    file.write(padding)
-
+    filldata = b'\xC5\xC5\xC5\xC5\xC5\xC5\xC5\xC5\xC5\xC5\xC5\xC5\xC5\xC5\xC5\xC5'
+    file.write(struct.pack(str(N)+'s4s', filldata[0:N], s4comment))
     return file.tell()
 
 
@@ -59,7 +51,7 @@ def read_scm(filepath):
         buffer = b''
         while True:
             b = sc.read(1)
-            if b == b'\x00' or b == b'\xC5': break
+            if b == b'\x00': break
             buffer += b
         bone_names.append(buffer.decode('ascii'))
 
@@ -98,7 +90,7 @@ def read_sca(filepath):
         buffer = b''
         while True:
             b = sc.read(1)
-            if b == b'\x00' or b == b'\xC5': break
+            if b == b'\x00': break
             buffer += b
         link_keys.append(buffer.decode('ascii'))
 
@@ -118,13 +110,16 @@ def read_sca(filepath):
     return link_keys, frames
 
 
-def write_sca(filepath):
+def write_sca(filepath, anim, names, links, frames):
     with open(filepath, 'w+b') as f:
-        f.write(struct.pack('4siifiiiii'), head)
-        f.write(struct.pack('7f', root))
-
-        for frame in frames:
-            f.write(struct.pack(f'fi{len(bones)}f'))
+        f.write(struct.pack('4siifiiiii', *anim))
+        pad_file(f, b'NAME')
+        f.write(struct.pack(str(len(names)) + 's', names.encode('ascii')))
+        pad_file(f, b'LINK')
+        f.write(struct.pack(str(len(links)) + 'i', *links))
+        pad_file(f, b'DATA')
+        f.write(struct.pack('7f', 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0))
+        f.write(struct.pack(f'fi{7 * len(links)}f' * (len(frames) // (7 * len(links) - 2)), *frames))
 
 
 def read_bp(filepath):  # TODO Prevent removal of spaces within strings

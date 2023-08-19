@@ -2,7 +2,8 @@ import bpy
 import bmesh
 import math
 from mathutils import Matrix, Vector, Quaternion
-from .sc_io import write_scm
+from os import path
+from .sc_io import write_scm, write_sca
 
 
 co_correction_mat = Matrix(([1, 0, 0], [ 0, 0, 1], [ 0, -1, 0])).to_4x4()
@@ -10,17 +11,13 @@ co_correction_mat = Matrix(([1, 0, 0], [ 0, 0, 1], [ 0, -1, 0])).to_4x4()
 
 def pad(size):
     val = 32 - (size % 32)
-
-    if (val > 31):
-        return 0
-
+    if (val > 31): return 0
     return val
 
 
 def scm_data(ob):
     depsgraph = bpy.context.evaluated_depsgraph_get()
 
-    # TODO exclude lod1+ bones from lod0, include only used bones on lod1+
     model_bones = ob.data.bones
 
     model_head_data = [b'MODL', 5]
@@ -52,9 +49,10 @@ def scm_data(ob):
     vert_id_to_index = {}
     vert_counter = 0
 
-    for child in [child for child in ob.children if child.type == 'MESH']:
+    for child in [child for child in ob.children_recursive if child.type == 'MESH']:
         bm = bmesh.new(use_operators=True)
         bm.from_object(child, depsgraph)
+        bmesh.ops.transform(bm, matrix=child.matrix_local, verts=bm.verts, use_shapekey=False)
         bmesh.ops.triangulate(bm, faces=bm.faces)
 
         layer_deform = bm.verts.layers.deform.verify()
@@ -117,5 +115,52 @@ def scm_data(ob):
     return model_head_data, total_bone_data, bone_name_data, total_vert_data, total_face_data, b''
 
 
-def scm(filepath, scm_data):
-    write_scm(filepath, *scm_data)
+def scm(dirname, ob):
+    write_scm(path.join(dirname, ob.name + '.scm'), *scm_data(ob))
+
+
+def sca_data(ob, sc_anim, sc_anim_index):
+    ob.sc_animations_index = sc_anim_index
+
+    frame_list = list(range(sc_anim.frame_start, sc_anim.frame_end + 1))
+    # TODO filter bones to animated bones
+    anim_bones = ob.pose.bones
+    bone_to_ii = {bone:ii for ii, bone in enumerate(anim_bones)}
+
+    anim_header_data = [b'ANIM', 5, len(frame_list), frame_list[-1] / 30, len(anim_bones)]
+    total_frame_data = []
+    total_name_data = chr(0).join([bone.name for bone in anim_bones]) + chr(0)
+    total_link_data = [bone_to_ii[bone.parent] if bone.parent else -1 for bone in anim_bones]
+
+    offset_val = 36  # header
+    offset_val += pad(offset_val)
+    anim_header_data.append(offset_val)
+    offset_val += len(total_name_data)  # names
+    offset_val += pad(offset_val)
+    anim_header_data.append(offset_val)
+    offset_val += len(anim_bones) * 4  # links
+    offset_val += pad(offset_val)
+    anim_header_data.append(offset_val)
+    anim_header_data.append(8 + 28 * len(anim_bones))  # frame_size
+
+    for frame in frame_list:
+        bpy.context.scene.frame_set(frame)
+
+        total_frame_data.extend((frame / 30, 0))
+
+        for pb in anim_bones:
+
+            if not pb.parent:
+                rel_mat = pb.matrix.transposed() @ co_correction_mat.inverted()
+            else:
+                rel_mat = pb.matrix.transposed() @ pb.parent.matrix.transposed().inverted()
+            rel_mat.transpose()
+
+            total_frame_data.extend(rel_mat.to_translation())
+            total_frame_data.extend(rel_mat.to_quaternion().normalized())
+
+    return anim_header_data, total_name_data, total_link_data, total_frame_data
+
+
+def sca(dirname, ob, sc_anim, sc_anim_index):
+    write_sca(path.join(dirname, sc_anim.name) + '.sca', *sca_data(ob, sc_anim, sc_anim_index))
