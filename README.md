@@ -31,8 +31,8 @@ The following operation is added to the _Import_ top bar:
 
 The following operation is added to the _Export_ top bar:
 - __Supreme Commander Model (.scm)__
-    - Operates on the selected armature object.
-    - All mesh vertices must be rigged to the parent armature via vertex groups.
+    - Operates on all selected armature objects.
+    - All mesh vertices must be rigged to their parent armature via vertex groups.
     - Opens a file manager from which you may select an output directory. The output file name is derived from the armature object's name.
     - The output data is derived from the armature object and all mesh objects which are parented under it.
 
