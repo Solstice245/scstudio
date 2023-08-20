@@ -150,7 +150,7 @@ def read_bp(filepath):  # TODO Prevent removal of spaces within strings
             sub_start = 1
             while sub_start < len(split[1]):
                 sub_text = split[1][sub_start:]
-                find_ii = sub_text.find(char)
+                find_ii = sub_text.find(string_char)
                 if find_ii > 0:
                     if sub_text[find_ii - 1] == '\\':
                         sub_start += find_ii + 1
@@ -197,6 +197,7 @@ def read_bp(filepath):  # TODO Prevent removal of spaces within strings
             elif last_split_char == '{': flat['.'.join(keys)] = [val]
             elif last_split_char == ',': flat['.'.join(keys)].append(val)
         
+        string_char = None
         if len(split[1]):
             if split[1][0] == '\'' or split[1][0] == '\"':
                 if len(split[0]):
