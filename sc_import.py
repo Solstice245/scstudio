@@ -123,6 +123,8 @@ def scm_armature(sc_bones, sc_bone_names, sc_id, options):
 
     bpy.ops.object.mode_set(mode='OBJECT', toggle=False)
 
+    arm.show_axes = True
+
     return ob
 
 
