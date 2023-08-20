@@ -1,6 +1,7 @@
 import bpy
 from time import time
 from os import path
+from mathutils import Matrix
 from . import sc_import
 from . import sc_export
 
@@ -150,7 +151,10 @@ class SCAnimationMove(bpy.types.Operator):
 def sc_anim_update(self, context):
     if self.animation_data is None: self.animation_data_create()
 
-    if self.sc_animations_index < 0: self.animation_data.action = None
+    if self.sc_animations_index < 0:
+        self.animation_data.action = None
+        for pb in self.pose.bones:
+            pb.matrix_basis = Matrix.Identity(4)
     else:
         anim = self.sc_animations[self.sc_animations_index]
         if not anim.action: anim.action = bpy.data.actions.new(anim.name)
@@ -253,7 +257,13 @@ class SCExportOperator(bpy.types.Operator):
         for ob in context.selected_objects:
             if ob.type != 'ARMATURE': continue
             t = time()
+            # store user setting. casting to int because sc_animations_index is a reference
+            sc_anim_index = int(ob.sc_animations_index)
+            # set anim index to none so that the pose is in default position
+            ob.sc_animations_index = -1
             sc_export.scm(self.directory, ob)
+            # restore user setting
+            ob.sc_animations_index = sc_anim_index
             print('export time', self.directory, ob.name, time() - t)
         return {'FINISHED'}
 
