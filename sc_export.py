@@ -6,7 +6,7 @@ from os import path
 from .sc_io import write_scm, write_sca
 
 
-co_correction_mat = Matrix(([1, 0, 0], [ 0, 0, 1], [ 0, -1, 0])).to_4x4()
+co_correction_mat = Matrix(((1, 0, 0), ( 0, 0, 1), ( 0, -1, 0))).to_4x4()
 
 
 def pad(size):

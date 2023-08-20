@@ -6,7 +6,7 @@ from .sc_mat import generate_bl_material
 from .sc_io import read_scm, read_sca, read_bp
 
 
-co_correction_mat = Matrix(([1, 0, 0], [ 0, 0, 1], [ 0, -1, 0])).to_4x4()
+co_correction_mat = Matrix(((1, 0, 0), ( 0, 0, 1), ( 0, -1, 0))).to_4x4()
 
 
 def sca(ob, dirname, filename):
@@ -30,7 +30,7 @@ def sca(ob, dirname, filename):
         anim.frame_end = max(bl_time, anim.frame_end)
 
         for sc_link in sc_links:
-            bones_frames[sc_link].append([*sc_frame[2][sc_link], bl_time, sc_frame[1]])
+            bones_frames[sc_link].append((*sc_frame[2][sc_link], bl_time, sc_frame[1]))
 
     for bone_name, bone_frames in bones_frames.items():
 
@@ -87,7 +87,7 @@ def sca(ob, dirname, filename):
             key_co_rotz.extend((bone_frame[7], rot[2]))
             key_co_rotw.extend((bone_frame[7], rot[3]))
 
-        fcurve_data_pairs = [(locx, key_co_locx), (locy, key_co_locy), (locz, key_co_locz), (rotx, key_co_rotx), (roty, key_co_roty), (rotz, key_co_rotz), (rotw, key_co_rotw)]
+        fcurve_data_pairs = ((locx, key_co_locx), (locy, key_co_locy), (locz, key_co_locz), (rotx, key_co_rotx), (roty, key_co_roty), (rotz, key_co_rotz), (rotw, key_co_rotw))
 
         for fcurve, key_co in fcurve_data_pairs:
             fcurve.select = False
@@ -113,7 +113,7 @@ def scm_armature(sc_bones, sc_bone_names, sc_id, options):
             sc_parent = sc_bone_names[sc_bone[24]]
             bone.parent = ob.data.edit_bones[sc_parent]
 
-        mat = Matrix([sc_bone[0:4], sc_bone[4:8], sc_bone[8:12], sc_bone[12:16]]).inverted()
+        mat = Matrix((sc_bone[0:4], sc_bone[4:8], sc_bone[8:12], sc_bone[12:16])).inverted()
         mat @= bone.parent.matrix.inverted() if sc_bone[24] == 0 else co_correction_mat
         mat.transpose()
 
