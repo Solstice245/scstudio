@@ -108,6 +108,7 @@ def scm_armature(sc_bones, sc_bone_names, sc_id, options):
 
     for sc_bone, sc_bone_name in zip(sc_bones, sc_bone_names):
         bone = ob.data.edit_bones.new(sc_bone_name)
+        bone.select_tail = False
 
         if sc_bone[24] >= 0:
             sc_parent = sc_bone_names[sc_bone[24]]
@@ -123,6 +124,7 @@ def scm_armature(sc_bones, sc_bone_names, sc_id, options):
 
     bpy.ops.object.mode_set(mode='OBJECT', toggle=False)
 
+    ob.select_set(True)
     arm.show_axes = True
 
     return ob
@@ -162,6 +164,7 @@ def scm_mesh(scm, me, options):
     uvl1 = bm.loops.layers.uv.new('SCM 1')
     for face in bm.faces:
         face.smooth = True
+        face.select = False
         for loop in face.loops:
             sc_vert = sc_vertices[loop.vert.index]
             loop[uvl0].uv = (sc_vert[12], -sc_vert[13] + 1)
