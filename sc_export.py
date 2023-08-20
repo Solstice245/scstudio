@@ -11,8 +11,7 @@ co_correction_mat = Matrix(([1, 0, 0], [ 0, 0, 1], [ 0, -1, 0])).to_4x4()
 
 def pad(size):
     val = 32 - (size % 32)
-    if (val > 31): return 0
-    return val
+    return 0 if (val > 31) else val
 
 
 def scm_data(ob):
@@ -70,7 +69,7 @@ def scm_data(ob):
             if bone is not None:
                 group_ii_to_bone_ii[ii] = bone_to_id[bone]
 
-        face_to_tan = {}
+        face_to_tan_bi = {}
         loop_to_id_index = {}
         for vert in bm.verts:
             co = co_correction_mat @ ob.matrix_local @ vert.co
@@ -83,18 +82,21 @@ def scm_data(ob):
                     break
 
             for loop in vert.link_loops:
-                try:
-                    tan = face_to_tan[loop.face.index]
-                except KeyError:
-                    l0, l1, l2 = ((vert.co, L[layer_uv0].uv[1]) for L in loop.face.loops)
-                    tan = face_to_tan[loop.face.index] = ((l2[1] - l0[1]) * (l1[0] - l0[0]) - (l1[1] - l0[1]) * (l2[0] - l0[0])).normalized()
-
-                id_tuple = (*co, *tan, *vert.normal, *(vert.normal.cross(tan)), loop[layer_uv0].uv[0], -loop[layer_uv0].uv[1] + 1, loop[layer_uv1].uv[0], -loop[layer_uv1].uv[1] + 1, deformation, 0, 0, 0)
+                id_tuple = (*co, *vert.normal, *loop[layer_uv0].uv, deformation)
                 id_index = vert_id_to_index.get(id_tuple)
                 if id_index is None:
+
+                    try:
+                        tan, bno = face_to_tan_bi[loop.face.index]
+                    except KeyError:
+                        l0, l1, l2 = ((L.vert.co, *L[layer_uv0].uv) for L in loop.face.loops)
+                        tan = ((l2[2] - l0[2]) * (l1[0] - l0[0]) - (l1[2] - l0[2]) * (l2[0] - l0[0])).normalized()
+                        bno = ((l2[1] - l0[1]) * (l1[0] - l0[0]) - (l1[1] - l0[1]) * (l2[0] - l0[0])).normalized()
+                        face_to_tan_bi[loop.face.index] = (tan, bno)
+
                     id_index = vert_counter
                     vert_id_to_index[id_tuple] = vert_counter
-                    total_vert_data.extend(id_tuple)
+                    total_vert_data.extend((*co, *tan, *vert.normal, *bno, loop[layer_uv0].uv[0], -loop[layer_uv0].uv[1] + 1, loop[layer_uv1].uv[0], -loop[layer_uv1].uv[1] + 1, deformation, 0, 0, 0))
                     vert_counter += 1
                 loop_to_id_index[loop] = id_index
 

@@ -19,8 +19,7 @@ import math
 
 def pad(size):
     val = 32 - (size % 32)
-    if (val > 31): return 0
-    return val
+    return 0 if (val > 31) else val
 
 
 def pad_file(file, s4comment):
