@@ -122,7 +122,7 @@ def write_sca(filepath, anim, names, links, frames):
         f.write(struct.pack(f'fi{7 * len(links)}f' * (len(frames) // (7 * len(links) + 2)), *frames))
 
 
-def read_bp(filepath):  # TODO Prevent removal of spaces within strings
+def read_bp(filepath):
     if path.isfile(filepath): bpf = open(filepath, 'rb').read().decode()
     else: return
 
@@ -130,7 +130,7 @@ def read_bp(filepath):  # TODO Prevent removal of spaces within strings
     for ln in bpf.split('\n'):
         clean_bp += ''.join(ln.split('#')[0]).split('--')[0]
 
-    bp = ''.join(clean_bp.split())
+    bp = ' '.join(clean_bp.split())
 
     char_find = {char: bp.find(char) for char in ['{', '}', '=', ',']}
     split = ['', bp]
@@ -145,7 +145,6 @@ def read_bp(filepath):  # TODO Prevent removal of spaces within strings
         split_char = sorted((value, key) for key, value in char_find.items())[0][1]
 
         if string_char:
-
             char_ii = None
             sub_start = 1
             while sub_start < len(split[1]):
@@ -160,14 +159,12 @@ def read_bp(filepath):  # TODO Prevent removal of spaces within strings
                 else:
                     char_ii = sub_start + find_ii
                     break
-
-            if char_ii:
-                split = split[1][0:char_ii + 1], split[1][char_ii + 2:]
-            else:
-                split = ('',)
-        else: split = split[1].split(split_char, 1)
-
-        if len(split) == 1: break
+            split = split[1][0:char_ii + 1].strip(), split[1][char_ii + 2:].strip()
+        else:
+            split = split[1].split(split_char, 1)
+            split[0] = split[0].strip()
+            try: split[1] = split[1].strip()
+            except IndexError: break
 
         char_find = {char: split[1].find(char) for char in ('{', '}', '=', ',')}
         for key in char_find.keys(): char_find[key] = 2**16 if char_find[key] == -1 else char_find[key]
