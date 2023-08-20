@@ -14,7 +14,7 @@ Created by *John Wharton*
 - __Option B__ (manual):
     1. Extract the files from the ___zipped___ folder to `scstudio` directory.
     2. Place the newly made folder into the following location (Adjust for the installed version of Blender):
-        - `%APPDATA%\Blender Foundation\Blender\3.0x\scripts\addons` (Assumes a Windows operating system)
+        - `%APPDATA%\Blender Foundation\Blender\3.0x\scripts\addons` _(Assumes a Windows operating system)_
     - _(If the addon does not appear as a choice in Blender's preferences click the `Refresh` button or restart the application.)_
 3. Activate the addon in Blender's preferences by toggling the checkbox for the `Supreme Commander SCM & SCA format` entry in the Add-ons tab.
 
@@ -43,6 +43,7 @@ The following panel is added to the _Data_ tab of the properties editor:
     - UI List:
         - Lists all of the animations which have been imported onto the armature. Each entry has an action drop down and frame range values.
         - Selecting an animation in the list will automatically adjust the scene so that the armature is using the animation's action, and the timeline is using the animation's defined frame range.
+        - To return to an unanimated state, right click an item in the list and select _"Reset to Default Value"_ from the dropdown.
         - Operator: __Export (.sca)__
             - Operates on the selected animation in the list.
             - Opens a file manager from which you may select an output directory. The output file name is derived from the name given to the animation entry in the list.
