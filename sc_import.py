@@ -185,10 +185,6 @@ def scm_mesh(scm, me, options):
             del doubles[origin]
     bmesh.ops.weld_verts(bm, targetmap=doubles)
 
-    if options.get('destructive', True):
-        bmesh.ops.dissolve_limit(bm, angle_limit=0.1, use_dissolve_boundaries=False, verts=bm.verts, edges=bm.edges, delimit={'NORMAL', 'UV'})
-        bmesh.ops.join_triangles(bm, faces=bm.faces, cmp_sharp=True, cmp_uvs=True, angle_face_threshold=1.0, angle_shape_threshold=1.0)
-
     bm.to_mesh(me)
     bm.free()
 

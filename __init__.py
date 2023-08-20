@@ -207,7 +207,6 @@ class SCAnimationPanel(bpy.types.Panel):
 
 
 class SCImportProps(bpy.types.PropertyGroup):
-    destructive: bpy.props.BoolProperty(default=True, options=set(), name='Destructive Operations', description='Performs destructive operations on the imported mesh data in an attempt to improve editability, but may cause undesirable artifacts')
     generate_materials: bpy.props.BoolProperty(default=True, options=set(), name='Generate Blender Materials')
 
 
@@ -233,7 +232,6 @@ class SCImportOperator(bpy.types.Operator):
 
     def draw(self, context):
         import_props = context.scene.sc_import_props
-        self.layout.prop(import_props, 'destructive')
         self.layout.prop(import_props, 'generate_materials')
 
 

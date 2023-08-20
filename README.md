@@ -23,10 +23,8 @@ Created by *John Wharton*
 The following operation is added to the _Import_ top bar:
 - __Supreme Commander Model (.scm)__
     - Opens a file manager from which you can select _multiple_ files at a time.
-    - Option: __Destructive__
-        - Performs destructive operations on the imported mesh data, such as dissolving faces and joining triangles. It is enabled by default, but disabling it may be desirable in rare cases where it causes artifacts.
     - Option: __Generate Materials__
-        - If the file is being imported from the same directory as the blueprint and texture files, Blender will have material nodes set up to use them automatically.
+        - If the file is being imported from the same directory as the blueprint and texture files, Blender will try to have material nodes set up to use those textures automatically.
     - For each file, an armature object and child mesh object are placed into the scene using data from the file.
 
 The following operation is added to the _Export_ top bar:
