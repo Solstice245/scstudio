@@ -144,9 +144,27 @@ def read_bp(filepath):  # TODO Prevent removal of spaces within strings
         last_split_char = split_char
         split_char = sorted((value, key) for key, value in char_find.items())[0][1]
 
-        if string_char: 
-            char_split = split[1].split(string_char, 2)
-            split = ['\'' + char_split[1] + '\'', char_split[-1][1:]]
+        if string_char:
+
+            char_ii = None
+            sub_start = 1
+            while sub_start < len(split[1]):
+                sub_text = split[1][sub_start:]
+                find_ii = sub_text.find(char)
+                if find_ii > 0:
+                    if sub_text[find_ii - 1] == '\\':
+                        sub_start += find_ii + 1
+                    else:
+                        char_ii = sub_start + find_ii
+                        break
+                else:
+                    char_ii = sub_start + find_ii
+                    break
+
+            if char_ii:
+                split = split[1][0:char_ii + 1], split[1][char_ii + 2:]
+            else:
+                split = ('',)
         else: split = split[1].split(split_char, 1)
 
         if len(split) == 1: break
@@ -179,6 +197,11 @@ def read_bp(filepath):  # TODO Prevent removal of spaces within strings
             elif last_split_char == '{': flat['.'.join(keys)] = [val]
             elif last_split_char == ',': flat['.'.join(keys)].append(val)
         
-        string_char = ('\'' if split[1][0] == '\'' else '\"' if split[1][0] == '\"' else None) if len(split[1]) else None
+        if len(split[1]):
+            if split[1][0] == '\'' or split[1][0] == '\"':
+                if len(split[0]):
+                    string_char = split[1][0] if split[0][-1] != '\\' else None
+                else:
+                    string_char = split[1][0]
 
     return flat
