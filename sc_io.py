@@ -25,6 +25,7 @@ def pad(size):
 
 def pad_file(file, s4comment):
     N = pad(file.tell()) - 4
+    if N < 0: return file.tell()
     filldata = b'\xC5\xC5\xC5\xC5\xC5\xC5\xC5\xC5\xC5\xC5\xC5\xC5\xC5\xC5\xC5\xC5'
     file.write(struct.pack(str(N)+'s4s', filldata[0:N], s4comment))
     return file.tell()
@@ -119,7 +120,7 @@ def write_sca(filepath, anim, names, links, frames):
         f.write(struct.pack(str(len(links)) + 'i', *links))
         pad_file(f, b'DATA')
         f.write(struct.pack('7f', 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0))
-        f.write(struct.pack(f'fi{7 * len(links)}f' * (len(frames) // (7 * len(links) - 2)), *frames))
+        f.write(struct.pack(f'fi{7 * len(links)}f' * (len(frames) // (7 * len(links) + 2)), *frames))
 
 
 def read_bp(filepath):  # TODO Prevent removal of spaces within strings

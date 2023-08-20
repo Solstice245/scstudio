@@ -7,7 +7,7 @@ from . import sc_export
 bl_info = {
     'name': 'Supreme Commander SCM & SCA format',
     'author': 'Solstice245',
-    'version': (1, 0, 0),
+    'version': (1, 0, 1),
     'blender': (3, 0, 0),
     'location': 'Properties Editor -> Object Data -> SupCom Model Data Panel',
     'description': 'Enables import and (eventually) export of Supreme Commander model data',
