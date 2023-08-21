@@ -51,7 +51,7 @@ def scm_data(ob):
     for child in [child for child in ob.children_recursive if child.type == 'MESH']:
         bm = bmesh.new(use_operators=True)
         bm.from_object(child, depsgraph)
-        bmesh.ops.transform(bm, matrix=child.matrix_local, verts=bm.verts, use_shapekey=False)
+        bmesh.ops.transform(bm, matrix=ob.matrix_world @child.matrix_local, verts=bm.verts, use_shapekey=False)
         bmesh.ops.triangulate(bm, faces=bm.faces)
 
         layer_deform = bm.verts.layers.deform.verify()
