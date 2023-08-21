@@ -63,10 +63,13 @@ def generate_bl_material(dirname, sc_id, mesh=None, bp=None, lod=0):
     specteam = tex_id + '_specteam.dds'
 
     if bp:
-        lod_key = 'Display.Mesh.LODs.' + str(lod)
-        shader = bp.get(lod_key + '.ShaderName', shader)
-        albedo = bp.get(lod_key + '.AlbedoName', albedo)
-        specteam = bp.get(lod_key + '.SpecTeamName', specteam)
+        try:
+            lod = bp['Display']['Mesh']['LODs'][lod]
+            shader = lod.get('ShaderName', shader)
+            albedo = lod.get('AlbedoName', albedo)
+            specteam = lod.get('SpecTeamName', specteam)
+        except KeyError:
+            pass
 
     material = bpy.data.materials.new(mesh.name)
     material.use_nodes = True

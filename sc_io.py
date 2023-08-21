@@ -202,4 +202,28 @@ def read_bp(filepath):
                 else:
                     string_char = split[1][0]
 
-    return flat
+    bpd = {}
+
+    for k in flat.keys():
+        ks = k.split('.')
+
+        ref = bpd
+        for ii in range(len(ks) - 1):
+            try:
+                ref = ref[ks[ii]]
+            except KeyError:
+                if ks[ii + 1].isdigit():
+                    ref[ks[ii]] = []
+                    ref = ref[ks[ii]]
+                else:
+                    ref[ks[ii]] = {}
+                    ref = ref[ks[ii]]
+            except TypeError:
+                try:
+                    ref = ref[int(ks[ii])]
+                except IndexError:
+                    ref.append({})
+                    ref = ref[int(ks[ii])]
+        ref[ks[-1]] = flat[k]
+
+    return bpd
