@@ -10,8 +10,8 @@ co_correction_mat = Matrix(((1, 0, 0), ( 0, 0, 1), ( 0, -1, 0))).to_4x4()
 
 
 def pad(size):
-    val = 32 - (size % 32)
-    return 0 if (val > 31) else val
+    val = 16 - (size % 16)
+    return val + 16 if (val < 4) else val
 
 
 def scm_data(ob):
@@ -27,7 +27,8 @@ def scm_data(ob):
 
     bone_to_id = {bone:ii for ii, bone in enumerate(model_bones)}
 
-    offset_val = 64
+    offset_val = 48
+    offset_val += pad(offset_val)
 
     for b in model_bones:
         b_rest = b.matrix_local.transposed()
@@ -51,16 +52,16 @@ def scm_data(ob):
     for child in [child for child in ob.children_recursive if child.type == 'MESH']:
         bm = bmesh.new(use_operators=True)
         bm.from_object(child, depsgraph)
-        bmesh.ops.transform(bm, matrix=ob.matrix_world @child.matrix_local, verts=bm.verts, use_shapekey=False)
+        bmesh.ops.transform(bm, matrix=co_correction_mat @ child.matrix_local, verts=bm.verts, use_shapekey=False)
         bmesh.ops.triangulate(bm, faces=bm.faces)
 
         layer_deform = bm.verts.layers.deform.verify()
 
         try: layer_uv0 = bm.loops.layers.uv.values()[0]
-        except KeyError: layer_uv0 = bm.loops.layers.uv.new('SCM 0')
+        except IndexError: layer_uv0 = bm.loops.layers.uv.new('SCM 0')
 
         try: layer_uv1 = bm.loops.layers.uv.values()[1]
-        except KeyError: layer_uv1 = bm.loops.layers.uv.new('SCM 1')
+        except IndexError: layer_uv1 = bm.loops.layers.uv.new('SCM 1')
 
         # vertex group index does not necessarily match bone heirarchy, so we need to map it
         group_ii_to_bone_ii = {}
@@ -72,7 +73,6 @@ def scm_data(ob):
         face_to_tan_bi = {}
         loop_to_id_index = {}
         for vert in bm.verts:
-            co = co_correction_mat @ ob.matrix_local @ vert.co
             # sort by weight and then pick the first one with a matching bone
             deformation = 0
             deformation_pairs = sorted(vert[layer_deform].items(), key=lambda x: x[1])
@@ -82,21 +82,28 @@ def scm_data(ob):
                     break
 
             for loop in vert.link_loops:
-                id_tuple = (*co, *vert.normal, *loop[layer_uv0].uv, deformation)
+                id_tuple = (*vert.co, *vert.normal, *loop[layer_uv0].uv, deformation)
                 id_index = vert_id_to_index.get(id_tuple)
                 if id_index is None:
-
                     try:
-                        tan, bno = face_to_tan_bi[loop.face.index]
+                        t, b = face_to_tan_bi[loop.face.index]
                     except KeyError:
-                        l0, l1, l2 = ((L.vert.co, *L[layer_uv0].uv) for L in loop.face.loops)
-                        tan = ((l2[2] - l0[2]) * (l1[0] - l0[0]) - (l1[2] - l0[2]) * (l2[0] - l0[0])).normalized()
-                        bno = ((l2[1] - l0[1]) * (l1[0] - l0[0]) - (l1[1] - l0[1]) * (l2[0] - l0[0])).normalized()
-                        face_to_tan_bi[loop.face.index] = (tan, bno)
+                        c1, c2, c3 = (L.vert.co for L in loop.face.loops)
+                        u1, u2, u3 = (L[layer_uv0].uv[0] for L in loop.face.loops)
+                        v1, v2, v3 = (1 - L[layer_uv0].uv[1] for L in loop.face.loops)
+                        d = (v2 - v1) * (u3 - u1) - (u2 - u1) * (v3 - v1)
+                        try:
+                            t = (((v3 - v1) * (c2 - c1) - (v2 - v1) * (c3 - c1)) / d).normalized()
+                            b = (((u3 - u1) * (c2 - c1) - (u2 - u1) * (c3 - c1)) / -d).normalized()
+                        except ZeroDivisionError:
+                            t = Vector((0, 0, 0))
+                            b = Vector((0, 0, 0))
+                        face_to_tan_bi[loop.face.index] = (t, b)
 
                     id_index = vert_counter
                     vert_id_to_index[id_tuple] = vert_counter
-                    total_vert_data.extend((*co, *tan, *vert.normal, *bno, loop[layer_uv0].uv[0], -loop[layer_uv0].uv[1] + 1, loop[layer_uv1].uv[0], -loop[layer_uv1].uv[1] + 1, deformation, 0, 0, 0))
+                    total_vert_data.extend((*vert.co, *vert.normal, *t, *b, loop[layer_uv0].uv[0], 1 - loop[layer_uv0].uv[1], loop[layer_uv1].uv[0], 1 - loop[layer_uv1].uv[1], deformation, 0, 0, 0))
+                    model_head_data[3] = max(model_head_data[3], deformation)
                     vert_counter += 1
                 loop_to_id_index[loop] = id_index
 

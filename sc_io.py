@@ -8,7 +8,7 @@ import math
 # bone description
 #    4x4 matrix, position xyz, rotation xyzw, name_offset, parent_index, unk0 unk1
 # vertice description
-#    position xyz, tangent xyz, normal xyz, binormal xyz, uv, uv, bone 0-3
+#    position xyz, normal xyz, tangent xyz, binormal xyz, uv, uv, bone 0-3
 # frame description
 #    position xyz, rotation xyzw
 # head description
@@ -18,13 +18,12 @@ import math
 
 
 def pad(size):
-    val = 32 - (size % 32)
-    return 0 if (val > 31) else val
+    val = 16 - (size % 16)
+    return val + 16 if (val < 4) else val
 
 
 def pad_file(file, s4comment):
     N = pad(file.tell()) - 4
-    if N < 0: return file.tell()
     filldata = b'\xC5\xC5\xC5\xC5\xC5\xC5\xC5\xC5\xC5\xC5\xC5\xC5\xC5\xC5\xC5\xC5'
     file.write(struct.pack(str(N)+'s4s', filldata[0:N], s4comment))
     return file.tell()
@@ -51,7 +50,7 @@ def read_scm(filepath):
         buffer = b''
         while True:
             b = sc.read(1)
-            if b == b'\x00': break
+            if b == b'\0': break
             buffer += b
         bone_names.append(buffer.decode('ascii'))
 
@@ -66,11 +65,11 @@ def write_scm(filepath, modl, bones, bone_names, verts, faces, info):
         pad_file(f, b'NAME')
         for name in bone_names:
             f.write(struct.pack(f'{str(len(name))}sx', name))
-        pad_file(f, b'BONE')
+        pad_file(f, b'SKEL')
         f.write(struct.pack('16f3f4f4i' * (len(bones) // 27), *bones))
-        pad_file(f, b'VERT')
+        pad_file(f, b'VRTX')
         f.write(struct.pack('3f3f3f3f2f2f4B' * (len(verts) // 20), *verts))
-        pad_file(f, b'FACE')
+        pad_file(f, b'TRIS')
         f.write(struct.pack('H' * len(faces) , *faces))
 
         if len(info):
